@@ -1,41 +1,57 @@
-version: '2'
+version: '3'
 services:
 
-  # The Application
+  #PHP Service
   app:
-    build:
-      context: ./
-      dockerfile: app.dockerfile
+    build: ./php
+    container_name: app_flight
+    restart: unless-stopped
+    environment:
+      SERVICE_NAME: app
+      SERVICE_TAGS: dev
     working_dir: /var/www
     volumes:
       - ./:/var/www
-    environment:
-      - "DB_PORT=3306"
-      - "DB_HOST=database"
+    networks:
+      - app-network
 
-  # The Web Server
-  web:
-    build:
-      context: ./
-      dockerfile: web.dockerfile
-    working_dir: /var/www
-    volumes_from:
-      - app
+  #Nginx Service
+  webserver:
+    image: nginx:alpine
+    container_name: webserver_flight
+    restart: unless-stopped
     ports:
-      - 8080:80
-
-  # The Database
-  database:
-    image: mysql:5.6
+      - "8181:80"
     volumes:
-      - dbdata:/var/lib/mysql
-    environment:
-      - "MYSQL_DATABASE=stm_booking_flight_api"
-      - "MYSQL_USER=root"
-      - "MYSQL_PASSWORD=root"
-      - "MYSQL_ROOT_PASSWORD=root"
-    ports:
-        - "3306:3306"
+      - ./:/var/www
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
+    networks:
+      - app-network
 
+  #MySQL Service
+  db:
+    image: mysql:5.7
+    container_name: db_flight
+    restart: unless-stopped
+    ports:
+      - "3318:3306"
+    environment:
+      MYSQL_DATABASE: flights
+      MYSQL_USER: root
+      MYSQL_PASSWORD: root
+      MYSQL_ROOT_PASSWORD: root
+      SERVICE_TAGS: dev
+      SERVICE_NAME: mysql
+    volumes:
+      - mysqldata_flight:/var/lib/mysql/
+    networks:
+      - app-network
+
+#Docker Networks
+networks:
+  app-network:
+    driver: bridge
+#Volumes
 volumes:
-  dbdata:
+  mysqldata_flight:
+    driver: local
